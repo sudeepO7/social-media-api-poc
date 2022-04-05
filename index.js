@@ -3,6 +3,11 @@ const mongoose = require('mongoose');
 const dotenv = require('dotenv');
 const helmet = require('helmet');
 const morgan = require('morgan');
+
+// Routes
+const userRoutes = require('./routes/users');
+const authRoutes = require('./routes/auth');
+
 const app = express();
 
 // Get config data from .env file
@@ -23,6 +28,14 @@ mongoose.connect(
 app.use(express.json());
 app.use(helmet());
 app.use(morgan('common'));
+
+// APIs
+
+app.get('/', (req, res) => {
+    res.send('Welcome to my App');
+});
+app.use("/api/users", userRoutes);
+app.use("/api/auth", authRoutes);
 
 app.listen(port, () => {
     console.log(`Listening to port ${port}`);
