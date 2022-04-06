@@ -1,31 +1,22 @@
 const router = require('express').Router();
 const User = require("../models/User");
-const bcrypt = require("bcrypt");
-
-// Constants
-const MESSAGES = {
-    DEFAULT_ERROR_MESSAGE: 'Something went wrong',
-    USER_CREATED: 'User created successfully',
-    USER_NOT_FOUND: 'User not found',
-    PASSWORD_NOT_MATCH: 'Invalid password'
-};
-const handleException = (res, error) => {
-    return res.status(500).send({
-        success: false,
-        message: MESSAGES.DEFAULT_ERROR_MESSAGE,
-        error
-    });
-};
+const { getEncryptedPassword, compareEncryptedPassword, handleException } = require('../helpers/Helper');
+const { validateRegisterUser, validateLoginUser } = require('../helpers/Validator');
+const { MESSAGES, STATUS_CODES } = require('../helpers/Constant');
+const { NOT_FOUND, BAD_REQUEST, CREATED } = STATUS_CODES;
 
 // Register User
 router.post('/register', async (req, res) => {
     try {
+        // Request validation
+        if (!validateRegisterUser(req, res))
+            return false;
+        
         // Get request parameters
-        const { username, firstName, lastName, email, password } = req.body;
+        const { username, firstName, lastName, email, password, ...others } = req.body;
 
         // Encrypt/hash the password
-        const salt = await bcrypt.genSalt(10);
-        const hashedpass = await bcrypt.hash(password, salt);
+        const hashedpass = await getEncryptedPassword(password);
 
         // Create new user
         const newUser = await new User({
@@ -33,14 +24,16 @@ router.post('/register', async (req, res) => {
             firstName,
             lastName,
             email,
-            password: hashedpass
+            password: hashedpass,
+            ...others
         });
         await newUser.save();
 
         // Return success
-        return res.send({
+        return res.status(CREATED).send({
             success: true,
-            message: MESSAGES.USER_CREATED
+            message: MESSAGES.USER_CREATED,
+            user: newUser
         });
     } catch(error) {
         // Handle exception and return error
@@ -52,6 +45,10 @@ router.post('/register', async (req, res) => {
 // User Login
 router.post('/login', async (req, res) => {
     try {
+        // Request validation
+        if (!validateLoginUser(req, res))
+            return false;
+
         // Get request parameters
         const { username, email, password } = req.body;
 
@@ -62,15 +59,15 @@ router.post('/login', async (req, res) => {
         else
             user = await User.findOne({ email });
         if (!user)
-            return res.status(404).send({
+            return res.status(NOT_FOUND).send({
                 success: false,
                 message: MESSAGES.USER_NOT_FOUND
             });
         
         // Check password
-        const validPass = await bcrypt.compare(password, user.password)
+        const validPass = await compareEncryptedPassword(password, user.password);
         if (!validPass)
-            return res.status(400).send({
+            return res.status(BAD_REQUEST).send({
                 success: false,
                 message: MESSAGES.PASSWORD_NOT_MATCH
             });

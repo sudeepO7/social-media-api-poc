@@ -1,31 +1,17 @@
 const router = require('express').Router();
-const bcrypt = require("bcrypt");
 const User = require('../models/User');
-
-// Constants
-const MESSAGES = {
-    DEFAULT_ERROR_MESSAGE: 'Something went wrong',
-    CAN_NOT_UPDATE: `You can not update this user's details`,
-    CAN_NOT_DELETE: `You can not delete this user's account`,
-    USER_UPDATED: 'User details updated',
-    USER_DELETED: 'User account deleted',
-    USER_NOT_FOUND: 'User not found',
-    ALREADY_FOLLOWING: 'Already following this user',
-    ALREADY_UNFOLLOWING: 'You do not follow this user',
-    CAN_NOT_FOLLOW_SELF: 'You can not follow yourself',
-    CAN_NOT_UNFOLLOW_SELF: 'You can not unfollow yourself'
-};
-const handleException = (res, error) => {
-    return res.status(500).send({
-        success: false,
-        message: MESSAGES.DEFAULT_ERROR_MESSAGE,
-        error
-    });
-};
+const { getEncryptedPassword, handleException } = require('../helpers/Helper');
+const { validateUserId } = require('../helpers/Validator');
+const { MESSAGES, STATUS_CODES } = require('../helpers/Constant');
+const { FORBIDDEN, NOT_FOUND } = STATUS_CODES;
 
 // Update user
 router.put('/:id', async (req, res) => {
     try {
+        // Request validation
+        if (!validateUserId(req, res))
+            return false;
+
         // Get request parameters
         const { userId, password, isAdmin } = req.body;
         const { id } = req.params;
@@ -33,10 +19,8 @@ router.put('/:id', async (req, res) => {
         // Check whether user can update details or not
         if (userId === id || isAdmin) {
             // Encrypt/hash the password if present
-            if (password) {
-                const salt = await bcrypt.genSalt(10);
-                req.body.password = await bcrypt.hash(password, salt);
-            }
+            if (password)
+                req.body.password = await getEncryptedPassword(password);
 
             // Update user details
             await User.findByIdAndUpdate(id, {
@@ -50,9 +34,9 @@ router.put('/:id', async (req, res) => {
             });
         } else {
             // Handle unauthorized access scenario
-            return res.status(403).send({
+            return res.status(FORBIDDEN).send({
                 success: false,
-                message: MESSAGES.CAN_NOT_UPDATE
+                message: MESSAGES.CAN_NOT_UPDATE_USER
             });
         }
     } catch(error) {
@@ -64,6 +48,10 @@ router.put('/:id', async (req, res) => {
 // Delete user
 router.delete('/:id', async (req, res) => {
     try {
+        // Request validation
+        if (!validateUserId(req, res))
+            return false;
+
         // Get request parameters
         const { userId, isAdmin } = req.body;
         const { id } = req.params;
@@ -80,9 +68,9 @@ router.delete('/:id', async (req, res) => {
             });
         } else {
             // Handle unauthorized access scenario
-            return res.status(403).send({
+            return res.status(FORBIDDEN).send({
                 success: false,
-                message: MESSAGES.CAN_NOT_DELETE
+                message: MESSAGES.CAN_NOT_DELETE_USER
             });
         }
     } catch(error) {
@@ -102,7 +90,7 @@ router.get('/:id', async (req, res) => {
         
         // Check user found or not
         if (!user)
-            return res.status(404).send({
+            return res.status(NOT_FOUND).send({
                 success: false,
                 message: MESSAGES.USER_NOT_FOUND
             });
@@ -122,6 +110,10 @@ router.get('/:id', async (req, res) => {
 // Follow user
 router.put('/:id/follow', async (req, res) => {
     try {
+        // Request validation
+        if (!validateUserId(req, res))
+            return false;
+
         // Get request parameters
         const { userId } = req.body;
         const { id } = req.params;
@@ -152,14 +144,14 @@ router.put('/:id/follow', async (req, res) => {
                 });
             } else {
                 // Handle user already following
-                return res.status(403).send({
+                return res.status(FORBIDDEN).send({
                     success: false,
                     message: MESSAGES.ALREADY_FOLLOWING
                 }); 
             }
         } else {
             // Handle unauthorized access scenario
-            return res.status(403).send({
+            return res.status(FORBIDDEN).send({
                 success: false,
                 message: MESSAGES.CAN_NOT_FOLLOW_SELF
             });
@@ -173,6 +165,10 @@ router.put('/:id/follow', async (req, res) => {
 // Unfollow user
 router.put('/:id/unfollow', async (req, res) => {
     try {
+        // Request validation
+        if (!validateUserId(req, res))
+            return false;
+            
         // Get request parameters
         const { userId } = req.body;
         const { id } = req.params;
@@ -203,14 +199,14 @@ router.put('/:id/unfollow', async (req, res) => {
                 });
             } else {
                 // Handle user already following
-                return res.status(403).send({
+                return res.status(FORBIDDEN).send({
                     success: false,
                     message: MESSAGES.ALREADY_UNFOLLOWING
                 }); 
             }
         } else {
             // Handle unauthorized access scenario
-            return res.status(403).send({
+            return res.status(FORBIDDEN).send({
                 success: false,
                 message: MESSAGES.CAN_NOT_UNFOLLOW_SELF
             });

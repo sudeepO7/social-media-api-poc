@@ -4,9 +4,10 @@ const dotenv = require('dotenv');
 const helmet = require('helmet');
 const morgan = require('morgan');
 
-// Routes
+// Route imports
 const userRoutes = require('./routes/users');
 const authRoutes = require('./routes/auth');
+const postRoutes = require('./routes/posts');
 
 const app = express();
 
@@ -36,6 +37,7 @@ app.get('/', (req, res) => {
 });
 app.use("/api/users", userRoutes);
 app.use("/api/auth", authRoutes);
+app.use("/api/posts", postRoutes);
 
 app.listen(port, () => {
     console.log(`Listening to port ${port}`);
