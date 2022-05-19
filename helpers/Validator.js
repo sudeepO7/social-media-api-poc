@@ -40,7 +40,7 @@ const validateLoginUser = (req, res) => {
 
 // Validate user id in requests
 const validateUserId = (req, res) => {
-    if (!req.body.userId) {
+    if (!req.body.userId && !req.params.userId) {
         res.status(BAD_REQUEST).send({
             success: false,
             message: `Required field userId is missing`

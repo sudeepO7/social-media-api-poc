@@ -190,14 +190,14 @@ router.get('/:id', async (req, res) => {
 });
 
 // Get Timeline posts
-router.get('/timeline/all', async (req, res) => {
+router.get('/timeline/:userId', async (req, res) => {
     try {
         // Request validation
         if (!validateUserId(req, res))
             return false;
         
         // Fetch request parameters
-        const { userId } = req.body;
+        const { userId } = req.params;
 
         // Get current user
         const currentUser = await User.findById(userId);
