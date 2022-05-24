@@ -50,8 +50,21 @@ const validateUserId = (req, res) => {
     return true;
 };
 
+// Validate username in requests
+const validateUsername = (req, res) => {
+    if (!req.body.username && !req.params.username) {
+        res.status(BAD_REQUEST).send({
+            success: false,
+            message: `Required field username is missing`
+        });
+        return false;
+    }
+    return true;
+};
+
 module.exports = {
     validateRegisterUser,
     validateLoginUser,
-    validateUserId
+    validateUserId,
+    validateUsername
 };

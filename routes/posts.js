@@ -1,10 +1,26 @@
 const router = require('express').Router();
 const Post = require("../models/Post");
 const User = require("../models/User");
-const { validateUserId } = require('../helpers/Validator');
+const { validateUserId, validateUsername } = require('../helpers/Validator');
 const { handleException } = require('../helpers/Helper');
 const { MESSAGES, STATUS_CODES } = require('../helpers/Constant');
 const { NOT_FOUND, FORBIDDEN, CREATED, SUCCESS } = STATUS_CODES;
+
+const getUserList = async (userIds) => {
+    try {
+        const userList = await User.find({ _id: { $in: userIds } }, {
+            _id: 1,
+            username: 1,
+            firstName: 1,
+            lastName: 1,
+            profilePicture: 1
+        });
+        return userList;
+    } catch (err) {
+        console.log('getUserList | err ==> ', err);
+        return [];
+    }
+}
 
 // Create posts
 router.post('/', async (req, res) => {
@@ -177,11 +193,18 @@ router.get('/:id', async (req, res) => {
                 success: false,
                 message: MESSAGES.POST_NOT_FOUND
             });
-
+        
+        // Get user details
+        const usersList = await getUserList([post.userId]);
+        const { _id, userId, desc, likes, createdAt, updatedAt, img } = post;
+        const { username, firstName, lastName, profilePicture } = usersList[0] ? usersList[0] : {};
         // Return success
         return res.status(SUCCESS).send({
             success: true,
-            post
+            post: {
+                _id, userId, desc, likes, createdAt, updatedAt, img,
+                username, firstName, lastName, profilePicture
+            }
         });
     } catch(error) {
         // Handle exception and return error
@@ -200,7 +223,9 @@ router.get('/timeline/:userId', async (req, res) => {
         const { userId } = req.params;
 
         // Get current user
-        const currentUser = await User.findById(userId);
+        const currentUser = await User.findById(userId, { 
+            password: 0, isAdmin: 0
+        });
         
         if (!currentUser)
             return res.status(NOT_FOUND).send({
@@ -210,14 +235,84 @@ router.get('/timeline/:userId', async (req, res) => {
 
         // Fetch user's and it's follower's posts
         const currentUserPosts = await Post.find({ userId: currentUser._id });
+        const friendsList = [];
         const friendsPosts = await Promise.all(
-            currentUser.followers.map(friendsId => Post.find({ userId: friendsId }))
+            currentUser.followers.map(friendsId => {
+                if (!friendsList.includes(friendsId))
+                    friendsList.push(friendsId);
+                return Post.find({ userId: friendsId })
+            })
         );
+        // Get user details of the friends
+        const usersList = await getUserList(friendsList);
+        const allPosts = currentUserPosts.concat(...friendsPosts).map(post => {
+            const { _id, userId, desc, likes, createdAt, updatedAt, img } = post;
+            let userDetails = {};
+            if (post.userId === currentUser._id.toString()) {
+                const { username, firstName, lastName, profilePicture } = currentUser;
+                userDetails = { username, firstName, lastName, profilePicture };
+            } else {
+                const friend = usersList.filter(user => user._id.toString() === post.userId)[0];
+                if (friend) {
+                    const { username, firstName, lastName, profilePicture } = friend;
+                    userDetails = { username, firstName, lastName, profilePicture };
+                }
+            }
+            return {
+                _id, userId, desc, likes, createdAt, updatedAt, img,
+                ...userDetails
+            }
+        });
 
         // Return posts
         return res.send({
             success: true,
-            posts: currentUserPosts.concat(...friendsPosts)
+            posts: allPosts,
+            user: currentUser
+        });
+    } catch(error) {
+        // Handle exception and return error
+        return handleException(res, error);
+    }
+});
+
+// Get user's all posts
+router.get('/profile/:username', async (req, res) => {
+    try {
+        // Request validation
+        if (!validateUsername(req, res))
+            return false;
+        
+        // Fetch request parameters
+        const { username } = req.params;
+
+        // Get user details
+        const userDetails = await User.findOne({ username }, { 
+            password: 0, isAdmin: 0
+        });
+        
+        if (!userDetails)
+            return res.status(NOT_FOUND).send({
+                success: false,
+                message: MESSAGES.USER_NOT_FOUND
+            });
+
+        // Fetch user's posts
+        let userPosts = await Post.find({ userId: userDetails._id });
+        userPosts = userPosts.map(post => {
+            const { _id, userId, desc, likes, createdAt, updatedAt, img } = post;
+            const { username, firstName, lastName, profilePicture } = userDetails;
+            return {
+                _id, userId, desc, likes, createdAt, updatedAt, img,
+                username, firstName, lastName, profilePicture
+            }
+        });
+
+        // Return posts
+        return res.send({
+            success: true,
+            posts: userPosts,
+            user: userDetails
         });
     } catch(error) {
         // Handle exception and return error
