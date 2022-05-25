@@ -22,13 +22,9 @@ const validateRegisterUser = (req, res) => {
 
 // Validate login user requests
 const validateLoginUser = (req, res) => {
-    const mandatoryFields = ['username', 'email', 'password'];
-    const requestFields = Object.keys(req.body), missingFields = [];
-    mandatoryFields.forEach(field => {
-        if (!requestFields.includes(field))
-            missingFields.push(field);
-    });
-    if (missingFields.length > 0) {
+    const requestFields = Object.keys(req.body);
+    if ((!requestFields.includes('username') && !requestFields.includes('email')) ||
+        !requestFields.includes('password')) {
         res.status(BAD_REQUEST).send({
             success: false,
             message: `Required fields username/email and password are needed`
