@@ -4,6 +4,17 @@ const dotenv = require('dotenv');
 const helmet = require('helmet');
 const morgan = require('morgan');
 const cors = require('cors');
+const path = require("path");
+const multer = require('multer');
+const storage = multer.diskStorage({
+    destination: (req, file, cb) => {
+        cb(null, "public/images");
+    },
+    filename: (req, file, cb) => {
+        cb(null, file.originalname);
+    }
+})
+const upload = multer({storage});
 
 // Route imports
 const userRoutes = require('./routes/users');
@@ -29,8 +40,11 @@ mongoose.connect(
 
 app.use(cors());
 app.use(express.json());
-app.use(helmet());
+app.use(helmet({
+    crossOriginResourcePolicy: false
+}));
 app.use(morgan('common'));
+app.use("/images", express.static(path.join(__dirname, "public/images")));
 
 // APIs
 
@@ -40,6 +54,20 @@ app.get('/', (req, res) => {
 app.use("/api/users", userRoutes);
 app.use("/api/auth", authRoutes);
 app.use("/api/posts", postRoutes);
+app.post("/api/upload", upload.single("file"), (req, res) => {
+    try {
+        return res.send({
+            success: true,
+            message: `File uploaded successfully`
+        });
+    } catch (error) {
+        return res.send({
+            success: true,
+            message: `Something went wrong`,
+            error
+        });
+    }
+});
 
 app.listen(port, () => {
     console.log(`Listening to port ${port}`);

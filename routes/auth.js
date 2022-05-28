@@ -27,13 +27,17 @@ router.post('/register', async (req, res) => {
             password: hashedpass,
             ...others
         });
-        await newUser.save();
-
-        // Return success
-        return res.status(CREATED).send({
-            success: true,
-            message: MESSAGES.USER_CREATED,
-            user: newUser
+        newUser.save().then(data => {
+            // Return success
+            return res.status(CREATED).send({
+                success: true,
+                message: MESSAGES.USER_CREATED,
+                user: newUser
+            });
+        }).catch(error => {
+            // Handle exception and return error
+            console.log('register user | error ==> ', error);
+            return handleException(res, error);
         });
     } catch(error) {
         // Handle exception and return error
