@@ -1,5 +1,6 @@
 const bcrypt = require("bcrypt");
 const { MESSAGES, STATUS_CODES } = require('./Constant');
+const User = require("../models/User");
 
 // Get encrypted/hashed password
 const getEncryptedPassword = async (password) => {
@@ -21,8 +22,27 @@ const handleException = (res, error) => {
     });
 };
 
+// Get Users list
+
+const getUserList = async (userIds) => {
+    try {
+        const userList = await User.find({ _id: { $in: userIds } }, {
+            _id: 1,
+            username: 1,
+            firstName: 1,
+            lastName: 1,
+            profilePicture: 1
+        });
+        return userList;
+    } catch (err) {
+        console.log('getUserList | err ==> ', err);
+        return [];
+    }
+};
+
 module.exports = {
     getEncryptedPassword,
     compareEncryptedPassword,
-    handleException
+    handleException,
+    getUserList
 };

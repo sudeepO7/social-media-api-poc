@@ -1,6 +1,6 @@
 const router = require('express').Router();
 const User = require('../models/User');
-const { getEncryptedPassword, handleException } = require('../helpers/Helper');
+const { getEncryptedPassword, handleException, getUserList } = require('../helpers/Helper');
 const { validateUserId } = require('../helpers/Validator');
 const { MESSAGES, STATUS_CODES } = require('../helpers/Constant');
 const { FORBIDDEN, NOT_FOUND } = STATUS_CODES;
@@ -211,6 +211,45 @@ router.put('/:id/unfollow', async (req, res) => {
                 message: MESSAGES.CAN_NOT_UNFOLLOW_SELF
             });
         }
+    } catch(error) {
+        // Handle exception and return error
+        return handleException(res, error);
+    }    
+});
+
+// Get a user friends
+router.get('/friends/:userId', async (req, res) => {
+    try {
+        // Request validation
+        if (!validateUserId(req, res))
+            return false;
+        // Get request parameters
+        const { userId } = req.params;
+
+        // Get user account
+        const user = await User.findById(userId);
+        
+        // Check user found or not
+        if (!user)
+            return res.status(NOT_FOUND).send({
+                success: false,
+                message: MESSAGES.USER_NOT_FOUND
+            });
+
+        const friendsList = [];
+        user.following.forEach(friendsId => {
+            if (!friendsList.includes(friendsId))
+                friendsList.push(friendsId);
+        });
+
+        // Get friends list
+        const usersList = await getUserList(friendsList);
+
+        // Return success
+        return res.send({
+            success: true,
+            friends: usersList
+        });
     } catch(error) {
         // Handle exception and return error
         return handleException(res, error);

@@ -2,25 +2,10 @@ const router = require('express').Router();
 const Post = require("../models/Post");
 const User = require("../models/User");
 const { validateUserId, validateUsername } = require('../helpers/Validator');
-const { handleException } = require('../helpers/Helper');
+const { handleException, getUserList } = require('../helpers/Helper');
 const { MESSAGES, STATUS_CODES } = require('../helpers/Constant');
 const { NOT_FOUND, FORBIDDEN, CREATED, SUCCESS } = STATUS_CODES;
 
-const getUserList = async (userIds) => {
-    try {
-        const userList = await User.find({ _id: { $in: userIds } }, {
-            _id: 1,
-            username: 1,
-            firstName: 1,
-            lastName: 1,
-            profilePicture: 1
-        });
-        return userList;
-    } catch (err) {
-        console.log('getUserList | err ==> ', err);
-        return [];
-    }
-}
 
 // Create posts
 router.post('/', async (req, res) => {
@@ -234,29 +219,24 @@ router.get('/timeline/:userId', async (req, res) => {
             });
 
         // Fetch user's and it's follower's posts
-        const currentUserPosts = await Post.find({ userId: currentUser._id });
-        const friendsList = [];
-        const friendsPosts = await Promise.all(
-            currentUser.followers.map(friendsId => {
-                if (!friendsList.includes(friendsId))
-                    friendsList.push(friendsId);
-                return Post.find({ userId: friendsId })
-            })
-        );
-        // Get user details of the friends
+        const friendsList = [currentUser._id];
+        currentUser.followers.forEach(friendsId => {
+            if (!friendsList.includes(friendsId))
+                friendsList.push(friendsId);
+        })
+        let allPosts = await Post.find({ userId: { $in: friendsList } }).sort({createdAt: -1});
+
+        // Get profile picture and name of the friends
         const usersList = await getUserList(friendsList);
-        const allPosts = currentUserPosts.concat(...friendsPosts).map(post => {
+
+        // Merge post details and user's profile picture and name
+        allPosts = allPosts.map(post => {
             const { _id, userId, desc, likes, createdAt, updatedAt, img } = post;
             let userDetails = {};
-            if (post.userId === currentUser._id.toString()) {
-                const { username, firstName, lastName, profilePicture } = currentUser;
+            const friend = usersList.filter(user => user._id.toString() === post.userId)[0];
+            if (friend) {
+                const { username, firstName, lastName, profilePicture } = friend;
                 userDetails = { username, firstName, lastName, profilePicture };
-            } else {
-                const friend = usersList.filter(user => user._id.toString() === post.userId)[0];
-                if (friend) {
-                    const { username, firstName, lastName, profilePicture } = friend;
-                    userDetails = { username, firstName, lastName, profilePicture };
-                }
             }
             return {
                 _id, userId, desc, likes, createdAt, updatedAt, img,
@@ -298,7 +278,7 @@ router.get('/profile/:username', async (req, res) => {
             });
 
         // Fetch user's posts
-        let userPosts = await Post.find({ userId: userDetails._id });
+        let userPosts = await Post.find({ userId: userDetails._id }).sort({createdAt: -1});
         userPosts = userPosts.map(post => {
             const { _id, userId, desc, likes, createdAt, updatedAt, img } = post;
             const { username, firstName, lastName, profilePicture } = userDetails;
