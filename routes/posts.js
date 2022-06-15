@@ -220,7 +220,7 @@ router.get('/timeline/:userId', async (req, res) => {
 
         // Fetch user's and it's follower's posts
         const friendsList = [currentUser._id];
-        currentUser.followers.forEach(friendsId => {
+        currentUser.following.forEach(friendsId => {
             if (!friendsList.includes(friendsId))
                 friendsList.push(friendsId);
         })
